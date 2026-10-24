@@ -34,7 +34,9 @@ export async function POST(req: Request) {
   }
   kit.t = now;
   if (body.rangoli === true && await store.once(`ek:rg:${who.i}`, 60)) pts += RANGOLI_POINTS;
-  await store.setJSON(key, kit, 3 * 86400);
+  // sending lights also counts as being online, so active players don't need a separate /api/beat
+  const anon = typeof body.anon === 'string' && /^[a-z0-9-]{8,48}$/i.test(body.anon) ? body.anon : null;
+  await Promise.all([store.setJSON(key, kit, 3 * 86400), anon ? store.beat(anon) : null]);
   if (lights === 0 && pts === 0) return Response.json({ ok: true, added: 0 });
   const { score, rank } = await store.addLights({
     uid: who.i, place: `${who.c}|${who.s}`, state: who.s, lights, pts, diyas, day: istDay(now)

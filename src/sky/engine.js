@@ -1497,7 +1497,10 @@ function renderDrawer() {
         <button type="button" class="btn btn--ghost" id="invite" style="height:44px;font-size:15px">Invite a friend</button>
       </div>
       <h3 class="shop-h">Your kit</h3>${list}
-      <p class="note">Nothing is for sale. Points and ranks can't be bought.</p></div>`;
+      <p class="note">Nothing is for sale. Points and ranks can't be bought.</p>
+      <p class="note"><button type="button" class="linkbtn" id="kitSupport">How every lakh lights becomes real diyas</button><br>
+        <a href="/privacy" target="_blank" style="color:var(--marigold-soft)">Privacy</a></p></div>`;
+    $('#kitSupport').addEventListener('click', () => openDrawer('support'));
     const inp = $('#skyName'), msg = $('#nameMsg');
     const bad = () => /\d|https?|www|\.com|\.in|@/i.test(S.skyName) || !S.skyName.trim();
     const sync = () => { $('#pv').textContent = templ(S.tpl, S.skyName); const b = bad(); msg.textContent = b ? 'Use letters only. No numbers, links or handles.' : 'Up to 20 letters. Every name is checked before it goes up.'; msg.classList.toggle('err', b); };
@@ -1520,7 +1523,8 @@ function renderDrawer() {
       <h3 class="shop-h">Want to add more diyas?</h3>
       <p class="para">Support is completely optional and Ek Aasmaan stays free. Supporting does not change your points, kit or rank.</p>
       <div class="upi">Support details are coming soon.</div>
-      <p class="note">Every rupee received and every diya given will be posted publicly after Diwali.</p></div>`;
+      <p class="note">Every rupee received and every diya given will be posted publicly after Diwali.</p>
+      <p class="note"><a href="/privacy" target="_blank" style="color:var(--marigold-soft)">Privacy: what we keep and how to remove your name</a></p></div>`;
   }
 }
 $('#btnRanks').addEventListener('click', () => openDrawer('ranks'));
@@ -1917,10 +1921,11 @@ const Q = { counts: {}, n: 0, rangoli: false };
 function queueLight(key) { Q.counts[key] = (Q.counts[key] || 0) + 1; Q.n++; }
 async function flush() {
   if (!S.user || (!Q.n && !Q.rangoli)) return;
-  const body = { token: S.user.token, counts: Q.counts, rangoli: Q.rangoli };
+  const body = { token: S.user.token, counts: Q.counts, rangoli: Q.rangoli, anon: S.anon };
   Q.counts = {}; Q.n = 0; Q.rangoli = false;
   try {
     const r = await API.post('/api/lights', body);
+    lastSent = Date.now();
     if (r.today != null) { S.pts = Math.max(S.pts, r.today); S.rank = r.rank; renderHud(); }
   } catch (e) { if (e.status === 401) { S.user = null; saveLocal('ek-user', null); toast('Please join again to keep your points'); } }
 }
@@ -1938,7 +1943,9 @@ async function poll() {
     S.feed = d.feed || []; renderFeed(); firstPoll = false;
   } catch (e) { /* offline for a moment: the sky keeps going */ }
 }
-function beat() { if (!document.hidden) API.post('/api/beat', { anon: S.anon }).catch(() => {}); }
+// "I'm here" ping, only while idle: sending lights already marks you as online
+let lastSent = 0;
+function beat() { if (!document.hidden && Date.now() - lastSent > 25000) API.post('/api/beat', { anon: S.anon }).catch(() => {}); }
 function openJoin() { closeDrawer(); closeTime(); S.joining = true; $('#join').hidden = false; $('#joinErr').textContent = ''; setTimeout(() => $('#jName').focus(), 30); }
 function closeJoin() { S.joining = false; $('#join').hidden = true; }
 $('#joinX').addEventListener('click', closeJoin);
@@ -1957,11 +1964,14 @@ $('#joinForm').addEventListener('submit', async (e) => {
 S.user = loadLocal('ek-user');
 if (S.user && S.user.token) { S.skyName = S.user.name; $('#btnSignin').textContent = S.user.name; } else S.user = null;
 // The kit is kept in the browser so a reload doesn't refill it (the server keeps its own copy too).
-function saveKit() { if (S.user) saveLocal('ek-kit', { uid: S.user.id, inv: S.inv, next: S.next }); }
+// Today's points ride along so the HUD doesn't show 0 after a reload (the server's number wins on the next send).
+const today = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+function saveKit() { if (S.user) saveLocal('ek-kit', { uid: S.user.id, inv: S.inv, next: S.next, day: today(), pts: S.pts, rank: S.rank }); }
 function restoreKit() {
   const k = loadLocal('ek-kit');
   if (!S.user || !k || k.uid !== S.user.id) return;
   Object.assign(S.inv, k.inv); S.next = k.next || {};
+  if (k.day === today()) { S.pts = k.pts || 0; S.rank = k.rank || null; }
   // add whatever refilled while the page was closed
   const now = Date.now();
   for (const key in KIT) {
@@ -1975,12 +1985,14 @@ function restoreKit() {
   }
 }
 restoreKit();
+// someone who already joined on this browser goes straight to their rooftop
+if (S.user) { startPlay(); toast(`Welcome back, ${S.user.name}. Your kit is where you left it.`); }
 S.anon = loadLocal('ek-anon') || (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
 saveLocal('ek-anon', S.anon);
-setInterval(flush, 8000);
+setInterval(flush, 15000);
 addEventListener('pagehide', flush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); else { poll(); beat(); } });
-setInterval(poll, 5000); poll();
+setInterval(poll, 10000); poll();
 setInterval(beat, 30000); beat();
 
 let shake = 0, kick = 0, T = 0, last = performance.now();

@@ -297,6 +297,19 @@ button,input{font:inherit;color:inherit}
   .brand .txt,.brand .dev,.online .w{display:none}
   .cta .btn{flex:1 1 auto}
   .hint{white-space:normal;font-size:14px}
+  /* phones: a smaller welcome block that sits low, so the sky and fireworks fill the top of the screen */
+  .stage{padding-block:8px}
+  .hero h1{font-size:54px}
+  .tag{font-size:19px}
+  .lede{font-size:15px;margin-top:10px}
+  .cta{margin-top:16px;gap:8px}
+  .cta .btn{height:48px;font-size:16px}
+  .fine{font-size:13px;margin-top:10px}
+  body:not(.mode-play):not(.view-aerial) .hint{display:none}
+  /* while playing, the top bar wraps to two rows, so the hint sits just above the cracker dock instead */
+  .mode-play .hint{top:auto;bottom:calc(122px + env(safe-area-inset-bottom,0px))}
+  .toast{bottom:calc(200px + env(safe-area-inset-bottom,0px))}
+  .nudge{bottom:calc(190px + env(safe-area-inset-bottom,0px))}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 

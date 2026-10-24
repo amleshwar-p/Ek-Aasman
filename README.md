@@ -81,8 +81,8 @@ Buy a domain (for example `ekaasmaan.in`) from any registrar. In Vercel: **Setti
 ## 4. Check after going live
 
 - [ ] Open the site on your phone and laptop at the same time: the **online** count shows 2.
-- [ ] Join on one, light some crackers: within ~10 seconds the **Lights across India** number goes up on the other.
-- [ ] Send a named rocket: it flies up on the other screen within ~5 seconds and appears under "In the sky now".
+- [ ] Join on one, light some crackers: within ~30 seconds the **Lights across India** number goes up on the other.
+- [ ] Send a named rocket: it flies up on the other screen within ~20 seconds and appears under "In the sky now".
 - [ ] **Ranks** shows you on Today, Cities and States.
 - [ ] Try joining with a rude name: it's refused.
 - [x] `/privacy` has the contact email and says data is deleted after Diwali 2026: `src/app/privacy/page.tsx`.
@@ -93,9 +93,9 @@ Buy a domain (for example `ekaasmaan.in`) from any registrar. In Vercel: **Setti
 
 ```
 Browser (3D page)                          Vercel (Next.js API)                 Upstash Redis
-  every 5 s   GET  /api/sky   ───────────▶  cached 4 s at Vercel's edge  ─────▶  lights, online, feed
-  every 30 s  POST /api/beat  ───────────▶  "I'm here" ping  ─────────────────▶  online set
-  every 8 s   POST /api/lights ──────────▶  checks kit refill rates, adds points ▶ counter + leaderboards
+  every 10 s  GET  /api/sky   ───────────▶  cached 10 s at Vercel's edge ─────▶  lights, online, feed
+  every 30 s  POST /api/beat  ───────────▶  "I'm here" ping, only while idle ──▶  online set
+  every 15 s  POST /api/lights ──────────▶  checks kit refill rates, adds points, marks you online ▶ counter + leaderboards
   on join     POST /api/join  ───────────▶  checks name/city/state, signs a token
   named rocket POST /api/named ──────────▶  builds text from template, 1 per 20 s ▶ feed
   Ranks panel GET  /api/ranks ───────────▶  cached 10 s
@@ -103,7 +103,7 @@ Browser (3D page)                          Vercel (Next.js API)                 
 
 - **No accounts.** On join the server signs a small token (name, city, state, random id) with `SESSION_SECRET`. The browser keeps it and sends it with points, so nobody can post points as someone else.
 - **No cheating the board.** The server keeps its own copy of each player's free kit and only accepts what could have refilled (for example 1 rocket per 30 s). Points are worked out on the server.
-- **Cheap at any scale.** `/api/sky` is cached at Vercel's edge, so 10 or 10,000 people watching cost the database the same few reads a minute. Lights are sent in batches every 8 seconds.
+- **Cheap at any scale.** `/api/sky` is cached at Vercel's edge, so 10 or 10,000 people watching cost the database the same few reads a minute. Lights are sent in batches every 15 seconds, and API functions run in Mumbai (`vercel.json`).
 - **Names are filtered** (`src/lib/filter.ts`): letters only (Hindi works), 2–20 characters, plus a starter list of English and Hinglish abuse. Add words there as you see what people try.
 
 ### Files

@@ -21,8 +21,9 @@ A free, desktop-first (also works on phones) 3D web app for Diwali 2026. Everyon
 ## Architecture
 - Next.js 16 App Router, TypeScript for server code. `reactStrictMode: false` because the engine must start once.
 - `src/components/SkyUI.tsx` renders all markup once. `src/sky/engine.js` (large vanilla JS module, three.js) grabs elements by id and drives everything: scene, fireworks, sound (Web Audio, synthesised), drawers, rangoli studio, polling. It was ported from a single-file prototype, so it is long; keep changes surgical.
-- API routes in `src/app/api/*`: `join`, `lights` (batched counts → server-computed points, per-item kit caps), `named` (template-only text, 1 per 20 s), `beat` (online presence), `sky` (edge-cached 4 s), `ranks` (edge-cached 10 s).
+- API routes in `src/app/api/*`: `join`, `lights` (batched counts → server-computed points, per-item kit caps), `named` (template-only text, 1 per 20 s), `beat` (online presence while idle; `lights` also marks you online), `sky` (edge-cached 10 s, polled every 10 s), `ranks` (edge-cached 10 s).
 - `src/lib/store.ts`: `RedisStore` (Upstash) or `MemoryStore` fallback when keys are missing (local dev). Redis keys are prefixed `ek:`.
+- Functions run in Mumbai (`vercel.json` regions `bom1`), next to the Upstash database. Returning players (token in localStorage) skip the welcome screen.
 - Env: `SESSION_SECRET` (required in production), Upstash keys `UPSTASH_REDIS_REST_URL/TOKEN` or `KV_REST_API_URL/TOKEN`.
 
 ## Commands
