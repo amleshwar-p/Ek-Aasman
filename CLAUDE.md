@@ -38,7 +38,7 @@ A free, desktop-first (also works on phones) 3D web app for Diwali 2026. Everyon
 7. Phone performance: a low-power mode (fewer buildings, no shadows, lower particle counts) chosen automatically.
 8. Better sounds: replace synthesised booms with CC0 recordings.
 9. Mahadeep moment on 8 Nov 6:29 pm IST: a synced countdown and everyone lights one diya together. Load-test `/api/lights` and `/api/sky` before then.
-10. Fill in the placeholders on `/privacy` (deletion date, contact email).
+10. `/privacy` promises deletion after Diwali 2026 once totals are announced (no fixed date). Contact: amleshwar.pa@gmail.com. When the time comes, delete the `ek:*` keys in Upstash.
 
 ## Style
 Dark night palette (marigold `#F6A93B`, rose `#FF8DA3`), fonts Tiro Devanagari Hindi (display) + Mukta (UI). Plain, friendly English copy. No emoji in the UI. Explain things to Aditya simply but keep the technical details.

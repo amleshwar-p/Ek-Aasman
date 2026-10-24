@@ -85,7 +85,7 @@ Buy a domain (for example `ekaasmaan.in`) from any registrar. In Vercel: **Setti
 - [ ] Send a named rocket: it flies up on the other screen within ~5 seconds and appears under "In the sky now".
 - [ ] **Ranks** shows you on Today, Cities and States.
 - [ ] Try joining with a rude name: it's refused.
-- [ ] Fill in the two placeholders on `/privacy` (date and contact email): `src/app/privacy/page.tsx`.
+- [x] `/privacy` has the contact email and says data is deleted after Diwali 2026: `src/app/privacy/page.tsx`.
 
 ---
 

@@ -17,9 +17,9 @@ export default function Privacy() {
       <h2 style={{ fontSize: 20, marginTop: 28 }}>What we don&apos;t keep</h2>
       <p>No email, phone number, password, location or contacts. We don&apos;t sell or share anything.</p>
       <h2 style={{ fontSize: 20, marginTop: 28 }}>How long</h2>
-      <p>The data is deleted by [DATE, e.g. 30 November 2026], after the Diwali totals are announced.</p>
+      <p>We keep it only for Diwali 2026. Once the celebrations end and the totals are announced, we delete it.</p>
       <h2 style={{ fontSize: 20, marginTop: 28 }}>Questions or removal</h2>
-      <p>Write to [YOUR CONTACT EMAIL] and we will remove your name.</p>
+      <p>Write to <a href="mailto:amleshwar.pa@gmail.com" style={{ color: 'var(--marigold-soft)' }}>amleshwar.pa@gmail.com</a> and we will remove your name.</p>
       <p style={{ marginTop: 32 }}><a href="/" style={{ color: 'var(--marigold-soft)' }}>Back to the sky</a></p>
     </main>
   );
