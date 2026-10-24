@@ -1232,12 +1232,12 @@ function addLights(n) {
   if (Math.floor(S.lit / 100000) > Math.floor(before / 100000)) toast(`${fmt(Math.floor(S.lit / 100000) * 100000)} lights! Another 100 real diyas for families and mandirs.`);
   renderLive();
 }
-function award(key) {
+function award(key, send = true) {
   const now = performance.now();
   S.times = S.times.filter((t) => now - t < 5000); S.times.push(now);
   const combo = S.times.length >= 3;
   const gain = Math.round(ITEM[key].pts * (combo ? 1.5 : 1));
-  S.pts += gain; lastGain = gain; S.myLights++; queueLight(key);
+  S.pts += gain; lastGain = gain; S.myLights++; if (send) queueLight(key);
   if (combo) { const c = $('#combo'); c.classList.add('on'); clearTimeout(award.ct); award.ct = setTimeout(() => c.classList.remove('on'), 1600); }
   addLights(1); renderHud();
   if (S.myLights === 10 && !S.nudged) showNudge();
@@ -1264,8 +1264,12 @@ function useItem(cx, cy) {
     case 'named': {
       const pt = skyPoint(cx, cy);
       API.post('/api/named', { token: S.user.token, tpl: S.tpl, name: S.skyName })
-        .then((r) => { S.mine.add(r.text); award('named'); myRocket(pt, r.text); S.feed.unshift({ text: r.text, where: S.user.city, ts: Date.now() }); renderFeed(); renderDock(); })
-        .catch((e) => { S.inv.named = (S.inv.named || 0) + 1; renderDock(); toast(e.message); });
+        .then((r) => {
+          // the server already counted this rocket's points, so don't send it again with the lights
+          S.mine.add(r.text); award('named', false); myRocket(pt, r.text); S.feed.unshift({ text: r.text, where: S.user.city, ts: Date.now() }); renderFeed(); renderDock();
+          if (r.today != null) { S.pts = Math.max(S.pts, r.today); S.rank = r.rank; renderHud(); }
+        })
+        .catch((e) => { S.inv.named = e.status === 403 ? 0 : (S.inv.named || 0) + 1; renderDock(); toast(e.message); });
       break;
     }
     case 'anar': { const p = floorPoint(cx, cy); emitters.push(new Anar(p, fizz)); if (!fizz) { gain = award('anar'); floatText({ x: p.x, y: 1.6, z: p.z }, '+' + gain, 'pts'); } break; }
@@ -1368,7 +1372,7 @@ function renderDock() {
       <span class="key">${idx + 1}</span><span class="ct">${c}</span>${svg(it.key, 26)}<span class="nm">${it.name}</span><span class="tm"></span></button>`;
   }).join('');
   d.querySelectorAll('.slot').forEach((b) => b.addEventListener('click', () => select(b.dataset.k)));
-  updateTimers();
+  updateTimers(); saveKit();
 }
 function updateTimers() {
   const now = Date.now();
@@ -1952,6 +1956,25 @@ $('#joinForm').addEventListener('submit', async (e) => {
 });
 S.user = loadLocal('ek-user');
 if (S.user && S.user.token) { S.skyName = S.user.name; $('#btnSignin').textContent = S.user.name; } else S.user = null;
+// The kit is kept in the browser so a reload doesn't refill it (the server keeps its own copy too).
+function saveKit() { if (S.user) saveLocal('ek-kit', { uid: S.user.id, inv: S.inv, next: S.next }); }
+function restoreKit() {
+  const k = loadLocal('ek-kit');
+  if (!S.user || !k || k.uid !== S.user.id) return;
+  Object.assign(S.inv, k.inv); S.next = k.next || {};
+  // add whatever refilled while the page was closed
+  const now = Date.now();
+  for (const key in KIT) {
+    const r = KIT[key];
+    if (r.earned) continue;
+    while (S.next[key] && S.next[key] <= now) {
+      S.inv[key] = Math.min(r.cap, (S.inv[key] || 0) + r.amt);
+      S.next[key] = S.inv[key] < r.cap ? S.next[key] + r.every * 1000 : 0;
+    }
+    startRefill(key);
+  }
+}
+restoreKit();
 S.anon = loadLocal('ek-anon') || (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
 saveLocal('ek-anon', S.anon);
 setInterval(flush, 8000);

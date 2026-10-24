@@ -1,6 +1,7 @@
-import { getStore } from '@/lib/store';
+import { getStore, istDay } from '@/lib/store';
 import { readToken } from '@/lib/auth';
 import { cleanName } from '@/lib/filter';
+import { NAMED_FREE, POINTS } from '@/lib/items';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,14 @@ export async function POST(req: Request) {
   const tpl = TEMPLATES[Math.max(0, Math.min(2, Number(body.tpl) || 0))];
   const store = getStore();
   if (!(await store.once(`ek:rl:named:${who.i}`, 20))) return Response.json({ error: 'One named rocket every 20 seconds' }, { status: 429 });
+  // named rockets are earned, not refilled: count how many this player has sent
+  const used = await store.hit(`ek:nr:${who.i}`, 30 * 86400);
+  if (used > NAMED_FREE) return Response.json({ error: 'Invite a friend to earn another named rocket' }, { status: 403 });
+  const now = Date.now();
   const text = tpl(name);
-  await store.pushFeed({ text, where: who.c, ts: Date.now(), uid: who.i });
-  return Response.json({ ok: true, text });
+  await store.pushFeed({ text, where: who.c, ts: now, uid: who.i });
+  const { score, rank } = await store.addLights({
+    uid: who.i, place: `${who.c}|${who.s}`, state: who.s, lights: 1, pts: POINTS.named, diyas: 0, day: istDay(now)
+  });
+  return Response.json({ ok: true, text, today: score, rank });
 }
