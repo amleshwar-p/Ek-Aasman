@@ -90,12 +90,28 @@ try {
   document.body.insertAdjacentHTML('beforeend', '<div class="nogl">This browser could not start the 3D sky. Try Chrome, Edge or Safari with hardware acceleration on.</div>');
   throw e;
 }
-const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+// Lite graphics for weaker phones: lower resolution, no shadows, a cheaper glow, fewer sparks and buildings.
+// Chosen from the device, forced with ?lite or ?full in the address, and switched on by watchFps() if a phone
+// still struggles after loading (remembered for next time).
+const LITE = (() => {
+  const q = location.search;
+  if (/[?&]full\b/.test(q)) { try { localStorage.removeItem('ek-lite'); } catch (e) { /* blocked */ } return false; }
+  if (/[?&]lite\b/.test(q)) return true;
+  try { if (localStorage.getItem('ek-lite') === '1') return true; } catch (e) { /* blocked */ }
+  let gpu = '';
+  try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); gpu = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : ''; } catch (e) { /* not exposed */ }
+  if (/swiftshader|llvmpipe|software|mali-[4t]|adreno \(tm\) [2-5]\d\d|powervr|sgx/i.test(gpu)) return true;
+  return matchMedia('(pointer: coarse)').matches && ((navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4);
+})();
+let FX = LITE ? 0.5 : SMALL ? 0.7 : 1; // share of sparks and ambient fireworks
+let bloomDiv = LITE ? 4 : 2; // the glow is worked out at 1/2 (or 1/4) of the screen size
+let DPR = Math.min(window.devicePixelRatio || 1, LITE ? 1 : 1.5);
+const pxU = { value: DPR }; // star size follows the pixel ratio
 renderer.setPixelRatio(DPR);
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !LITE;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
@@ -108,7 +124,7 @@ camera.lookAt(LOOK);
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.95, 0.55, 0.22);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth / bloomDiv, innerHeight / bloomDiv), 0.95, 0.55, 0.22);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -296,7 +312,7 @@ const sky = new THREE.Mesh(
 sky.renderOrder = -2;
 scene.add(sky);
 (function stars() {
-  const n = SMALL ? 1600 : 2800;
+  const n = LITE ? 1000 : SMALL ? 1600 : 2800;
   const pos = new Float32Array(n * 3), size = new Float32Array(n), seed = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const z = R(0.03, 1), a = R(0, Math.PI * 2), s = Math.sqrt(1 - z * z);
@@ -309,7 +325,7 @@ scene.add(sky);
   g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
   g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
   const m = new THREE.ShaderMaterial({
-    uniforms: { uTime: U.uTime, uPx: { value: DPR }, uNight: U.uNight },
+    uniforms: { uTime: U.uTime, uPx: pxU, uNight: U.uNight },
     vertexShader: `attribute float aSize; attribute float aSeed; uniform float uTime; uniform float uPx; uniform float uNight; varying float vA;
       void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = aSize * uPx;
         vA = (0.55 + 0.45 * sin(uTime * (0.5 + aSeed * 2.0) + aSeed * 40.0)) * smoothstep(0.02, 0.3, normalize(position).y) * uNight * uNight;
@@ -359,7 +375,7 @@ const TEMPLES = [[-38, -70], [52, -118], [-90, -160], [18, -210], [-120, 70], [1
 const PAINT = ['#EFE3C8', '#E9C3BE', '#EBD58F', '#A9C7DA', '#B9D8C0', '#C98A68', '#C6B9D8', '#E8E6E1', '#EDB98D', '#F1D9A7', '#D6E3E8'];
 (function city() {
   const box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, 0.5, 0);
-  const N = SMALL ? 2600 : 4300;
+  const N = LITE ? 1600 : SMALL ? 2600 : 4300;
   const mesh = shadowy(new THREE.InstancedMesh(box.clone(), litMat(1, 1, 1, { win: 1 }), N));
   const seeds = new Float32Array(N);
   const rimParts = [];
@@ -414,7 +430,7 @@ const PAINT = ['#EFE3C8', '#E9C3BE', '#EBD58F', '#A9C7DA', '#B9D8C0', '#C98A68',
   [mesh, rims, tops, tanks].forEach((o) => { o.frustumCulled = false; scene.add(o); });
 
   // trees: neem and ashoka along the streets
-  const nT = Math.min(treeSpots.length, SMALL ? 260 : 520);
+  const nT = Math.min(treeSpots.length, LITE ? 140 : SMALL ? 260 : 520);
   const crowns = shadowy(new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 2), litMat(1, 1, 1, { rough: 1 }), nT));
   const trunks = shadowy(new THREE.InstancedMesh((() => { const g = new THREE.CylinderGeometry(0.16, 0.24, 1, 6); g.translate(0, 0.5, 0); return g; })(), litMat(0.22, 0.15, 0.09), nT));
   const greens = ['#3f6b2e', '#4d7a32', '#2f5a28', '#5c8a3a', '#466f30'];
@@ -693,8 +709,8 @@ class Particles {
     a.position.needsUpdate = true; a.aSize.needsUpdate = true; a.aAlpha.needsUpdate = true; a.aColor.needsUpdate = true;
   }
 }
-const sparks = new Particles(SMALL ? 28000 : 48000, false);
-const smoke = new Particles(3200, true);
+const sparks = new Particles(LITE ? 16000 : SMALL ? 28000 : 48000, false);
+const smoke = new Particles(LITE ? 1600 : 3200, true);
 function puff(x, y, z, n, big = 1) {
   const k = ENV.night, c = [lerp(0.42, 0.07, k), lerp(0.41, 0.06, k), lerp(0.43, 0.08, k)];
   for (let j = 0; j < n; j++) smoke.spawn(x + R(-0.1, 0.1) * big, y + R(0, 0.2), z + R(-0.1, 0.1) * big, R(-0.25, 0.25), R(0.25, 0.7), R(-0.25, 0.25),
@@ -819,7 +835,7 @@ function updateShells(dt) {
 function explode(p, type, pal, sc, s = {}) {
   const [c1, c2] = pal, spd = 14 * sc, sz = 0.6 * sc;
   const one = (d, v, c, size, life, drag, grav, flags) => sparks.spawn(p.x, p.y, p.z, d[0] * v, d[1] * v, d[2] * v, c, size, life, drag, grav, (flags & (TRAIL | STROBE)) ? flags : flags | STREAK);
-  const rep = (n, f) => { const m = SMALL ? Math.ceil(n * 0.7) : n; for (let i = 0; i < m; i++) f(i, m); };
+  const rep = (n, f) => { const m = Math.ceil(n * FX); for (let i = 0; i < m; i++) f(i, m); };
   switch (type) {
     case 'chrys': rep(150, () => one(sph(), spd * R(0.88, 1.08), c1, sz, R(1.8, 2.3), 0.962, 4, TRAIL | EMBER)); break;
     case 'willow': rep(120, () => one(sph(), spd * R(0.7, 0.85), [1, 0.62, 0.22], sz * 0.8, R(3.2, 4.3), 0.952, 7, TRAIL | HEAVY | EMBER)); break;
@@ -874,7 +890,7 @@ class RoofFx {
   update(dt) {
     this.t += dt; const t = this.t, p = this.p;
     const k = t < 0.4 ? t / 0.4 : t < this.dur - 0.8 ? 1 : Math.max(0, (this.dur - t) / 0.8);
-    this.carry += (SMALL ? 150 : 240) * k * dt;
+    this.carry += 240 * FX * k * dt;
     if (this.kind === 'anar') {
       while (this.carry >= 1) {
         this.carry -= 1;
@@ -902,12 +918,12 @@ function ambientTick(dt) {
   const dayCalm = lerp(3.2, 1, ENV.night);
   if (ambT <= 0) {
     const base = mdRush > 0 ? 0.12 : (S.view === 'aerial' ? 0.42 : (S.mode === 'landing' ? 0.85 : 1.25)) * dayCalm;
-    ambT = base * R(0.5, 1.6) * (REDUCED ? 2 : 1);
+    ambT = base * R(0.5, 1.6) * (REDUCED ? 2 : 1) * (FX < 0.6 ? 1.4 : 1);
     launchAmbient();
   }
   if (fxT <= 0) {
     fxT = (S.view === 'aerial' ? 0.8 : 3.8) * R(0.6, 1.4) * (REDUCED ? 2 : 1) * dayCalm;
-    if (emitters.filter((e) => e instanceof RoofFx).length < (SMALL ? 4 : 7)) roofFx();
+    if (emitters.filter((e) => e instanceof RoofFx).length < Math.max(3, Math.round(7 * FX))) roofFx();
   }
 }
 
@@ -929,7 +945,7 @@ class Anar {
     if (this.fizz) { if (t < 1.2 && rand() < 0.3) sparks.spawn(p.x, 0.37, p.z, R(-0.5, 0.5), R(1, 2), R(-0.5, 0.5), [1, 0.6, 0.2], 0.04, 0.3, 0.9, 3, 0); if (t > 0.6 && t < 0.7) puff(p.x, 0.4, p.z, 6, 0.8); return t < 3 || this.remove(); }
     const k = t < 0.5 ? t / 0.5 : t < this.dur - 1.2 ? 1 : Math.max(0, (this.dur - t) / 1.2);
     const surge = 0.8 + 0.4 * Math.sin(t * 9) * Math.sin(t * 3.3);
-    this.carry += 520 * k * surge * dt * (SMALL ? 0.7 : 1);
+    this.carry += 520 * k * surge * dt * FX;
     while (this.carry >= 1) {
       this.carry -= 1;
       const a = R(0, Math.PI * 2), sp = R(0, 0.26) * (0.7 + 0.3 * k), spd = R(8, 14) * (0.55 + 0.45 * k);
@@ -965,7 +981,7 @@ class Chakri {
     this.mesh.position.set(this.p.x, 0.035, this.p.z); this.mesh.rotation.y = -this.ang;
     const phase = t < 1.6 ? 0 : t < 3.1 ? 1 : 2;
     const cols = [[[1, 0.66, 0.22], [1, 0.9, 0.6]], [[0.35, 1, 0.45], [0.85, 1, 0.7]], [[1, 0.25, 0.45], [1, 0.8, 0.85]]][phase];
-    this.carry += 700 * k * dt * (SMALL ? 0.7 : 1);
+    this.carry += 700 * k * dt * FX;
     while (this.carry >= 1) {
       this.carry -= 1;
       const a = this.ang + R(0, Math.PI * 2), rx = Math.cos(a), rz = Math.sin(a), spd = R(3.5, 7) * k;
@@ -1008,7 +1024,7 @@ class Bomb {
       const near = S.view === 'roof';
       addFlash({ x: p.x, y: 1.2, z: p.z }, 1, 0.85, 0.6, 120, 0.6, 6);
       skyFlash.add(new THREE.Vector3(1, 0.7, 0.4).multiplyScalar(2));
-      for (let k = 0; k < (SMALL ? 260 : 420); k++) { const d = sph(); const v = R(12, 30); sparks.spawn(p.x, 0.18, p.z, d[0] * v, Math.abs(d[1]) * v * 0.85, d[2] * v, rand() < 0.7 ? [1, 0.88, 0.62] : [1, 0.5, 0.15], R(0.045, 0.09), R(0.15, 0.6), 0.87, 9, BOUNCE | EMBER); }
+      for (let k = 0; k < Math.round(420 * FX); k++) { const d = sph(); const v = R(12, 30); sparks.spawn(p.x, 0.18, p.z, d[0] * v, Math.abs(d[1]) * v * 0.85, d[2] * v, rand() < 0.7 ? [1, 0.88, 0.62] : [1, 0.5, 0.15], R(0.045, 0.09), R(0.15, 0.6), 0.87, 9, BOUNCE | EMBER); }
       for (let k = 0; k < 140; k++) { const d = sph(); const v = R(2, 9); smoke.spawn(p.x, 0.2, p.z, d[0] * v, Math.abs(d[1]) * v + 2, d[2] * v, rand() < 0.75 ? [0.62, 0.05, 0.04] : [0.85, 0.78, 0.6], R(0.035, 0.07), R(5, 9), 0.9, 1.4, PAPER | BOUNCE); }
       puff(p.x, 0.25, p.z, 40, 2.2);
       this.ring = new THREE.Mesh(new THREE.RingGeometry(0.82, 1, 64), shockMat()); this.ring.rotation.x = -Math.PI / 2; this.ring.position.set(p.x, 0.04, p.z); scene.add(this.ring);
@@ -1886,7 +1902,7 @@ renderFeed(); renderLive();
 /* ---------------- resize + loop ---------------- */
 function resize() {
   const w = innerWidth, h = innerHeight;
-  renderer.setSize(w, h, false); composer.setSize(w, h); bloom.resolution.set(w / 2, h / 2);
+  renderer.setSize(w, h, false); composer.setSize(w, h); bloom.resolution.set(w / bloomDiv, h / bloomDiv);
   camera.aspect = w / h; camera.fov = w < 700 ? 64 : 52; camera.updateProjectionMatrix();
   const sc = (h * DPR) / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   sparks.mat.uniforms.uScale.value = sc; smoke.mat.uniforms.uScale.value = sc; glowMat.uniforms.uScale.value = sc;
@@ -2025,7 +2041,30 @@ setInterval(beat, 30000); beat();
 let shake = 0, kick = 0, T = 0, last = performance.now();
 const look = new THREE.Vector3(), cm = { x: 0, y: 0 };
 const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+// Safety net: if this device still runs under 24 frames a second a few seconds after loading, go lite
+// (and a step lower if that isn't enough). Phones remember it for the next visit. 24, not 30, because
+// iPhones in Low Power Mode cap the page at 30. Measured on the clock, not game time (a struggling phone's
+// game clock runs slow), and only while the window has focus (a covered desktop window is throttled).
+const fpsW = { t: 0, n: 0, steps: 0, last: 0, done: false, from: performance.now() + 4000 };
+function watchFps(now) {
+  const raw = fpsW.last ? (now - fpsW.last) / 1000 : 0; fpsW.last = now;
+  if (fpsW.done || document.hidden || !document.hasFocus() || S.studio || now < fpsW.from || raw <= 0 || raw > 2) return; // a long gap is a tab switch
+  fpsW.t += raw; fpsW.n++;
+  if (fpsW.t < 5) return;
+  const fps = fpsW.n / fpsW.t; fpsW.t = 0; fpsW.n = 0;
+  if (fps >= 24 || fpsW.steps >= 2) { fpsW.done = true; return; }
+  goLite(fpsW.steps === 0 ? 1 : 0.75); fpsW.steps++;
+  fpsW.from = now + 2000; // let the lighter settings settle before measuring again
+}
+function goLite(dpr) {
+  DPR = Math.min(DPR, dpr); pxU.value = DPR;
+  renderer.setPixelRatio(DPR); composer.setPixelRatio(DPR);
+  FX = 0.5; bloomDiv = 4; renderer.shadowMap.enabled = false;
+  resize();
+  if (matchMedia('(pointer: coarse)').matches) try { localStorage.setItem('ek-lite', '1'); } catch (e) { /* blocked: decide again next visit */ }
+}
 function frame(now) {
+  watchFps(now);
   const dt = Math.min(0.033, (now - last) / 1000); last = now; T += dt; U.uTime.value = T;
   if (S.studio) { requestAnimationFrame(frame); return; }
   if (camTw) {

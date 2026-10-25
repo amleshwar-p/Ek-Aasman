@@ -36,7 +36,7 @@ A free, desktop-first (also works on phones) 3D web app for Diwali 2026. Everyon
 4. Share card image (`/api/og`) with name, points, rank, city. (The link-preview image is done: `src/app/opengraph-image.tsx`, drawn at build time, no counts on it.)
 5. Daily streak and invite rewards (named rockets), server-tracked.
 6. Bot protection on join (Cloudflare Turnstile) if spam appears.
-7. Phone performance: a low-power mode (fewer buildings, no shadows, lower particle counts) chosen automatically.
+7. Phone performance is done: lite mode in `engine.js` (`LITE`, `FX`, `watchFps`) picks lower resolution, no shadows, cheaper bloom and fewer sparks/buildings from the device, or after measuring under 24 fps with the window focused (remembered in localStorage `ek-lite` on touch devices only). Force with `?lite` or `?full`.
 8. Better sounds: replace synthesised booms with CC0 recordings.
 9. Mahadeep moment on 8 Nov 6:29 pm IST: a synced countdown and everyone lights one diya together. Load-test `/api/lights` and `/api/sky` before then.
 10. `/privacy` promises deletion after Diwali 2026 once totals are announced (no fixed date). Contact: amleshwar.pa@gmail.com. When the time comes, delete the `ek:*` keys in Upstash.
