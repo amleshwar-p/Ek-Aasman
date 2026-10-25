@@ -4,9 +4,10 @@ export const POINTS: Record<string, number> = {
 };
 export const RANGOLI_POINTS = 15;
 
-// Named rockets don't refill: every player gets this many, and invites and streaks will add more later.
-// /api/named counts them and gives their points; /api/lights ignores them.
-export const NAMED_FREE = 1;
+// Named rockets: a new player starts with 2, one more refills every 2 minutes (hold up to 2), and each friend
+// who joins with your invite link adds one extra, up to 10. /api/named spends them and gives their points;
+// /api/lights ignores them.
+export const NAMED = { start: 2, cap: 2, every: 120, inviteMax: 10 };
 
 // The free kit, mirrored on the server so nobody can light faster than the kit refills.
 // start = what a new player has, cap = most they can hold, every = seconds to earn one more.

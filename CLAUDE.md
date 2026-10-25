@@ -11,7 +11,7 @@ A free, desktop-first (also works on phones) 3D web app for Diwali 2026. Everyon
 ## Decisions (don't undo without asking Aditya)
 - **No sign-up / no Google login.** Join = name + city + state. A server-signed token in localStorage identifies the player.
 - **No money anywhere.** No coins, no shop, no payments, no paid boosts. Points and ranks can't be bought.
-- **Free kit with short refill timers:** rocket 1/30 s (hold 5), anar/chakri/phuljhadi/bomb 1/45 s (hold 3), ladi 1/60 s (hold 2), sky shot 1/90 s, diya 11 per 10 min (hold 51), named rocket earned. Mirrored on the server in `src/lib/items.ts`.
+- **Free kit with short refill timers:** rocket 1/30 s (hold 5), anar/chakri/phuljhadi/bomb 1/45 s (hold 3), ladi 1/60 s (hold 2), sky shot 1/90 s, diya 11 per 10 min (hold 51). Named rocket: start with 2, 1 per 2 min (hold 2), plus 1 per friend who joins with your invite link (`/?i=<player id>`, max 10); no daily streak. Mirrored on the server in `src/lib/items.ts` and `src/lib/named.ts`.
 - **Support / charity:** "Every 1,00,000 lights = 100 real diyas for families and mandirs." The UPI or support link will come later. Until then the panel says "Support details are coming soon."
 - **Realistic goals:** no 1 crore target. Milestone ladder: 11,000 → 51,000 → 1,01,000 → 5,01,000 → 11,00,000 → 26,17,000 (Ayodhya Deepotsav 2025 record of 26.17 lakh diyas).
 - **Honesty:** never show invented people, names, counts or online numbers as if real. Ambient fireworks are fine, but only real named rockets get name labels. The leaderboards and counters come from the API.

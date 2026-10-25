@@ -19,6 +19,10 @@ export async function POST(req: Request) {
   if (n > 40) return Response.json({ error: 'Too many joins from this network. Try again in a while.' }, { status: 429 });
   const id = randomUUID();
   await store.createUser({ id, name, city, state });
+  // joined with a friend's invite link: that friend earns a named rocket (counted once per browser)
+  const ref = typeof body.ref === 'string' && /^[0-9a-f-]{36}$/i.test(body.ref) ? body.ref : null;
+  const anon = typeof body.anon === 'string' && /^[a-z0-9-]{8,48}$/i.test(body.anon) ? body.anon : id;
+  if (ref && await store.userExists(ref)) await store.addInvite(ref, anon);
   const token = makeToken({ i: id, n: name, c: city, s: state, t: Date.now() });
   return Response.json({ token, user: { id, name, city, state } });
 }

@@ -53,13 +53,13 @@ const KIT = {
   bomb: { cap: 3, every: 45, amt: 1, rule: '1 every 45 seconds, hold up to 3' },
   ladi: { cap: 2, every: 60, amt: 1, rule: '1 every minute, hold up to 2' },
   skyshot: { cap: 1, every: 90, amt: 1, rule: '1 every 90 seconds' },
-  named: { earned: true, rule: '+1 for each friend who joins, +1 per day of streak' }
+  named: { cap: 2, every: 120, amt: 1, rule: '1 every 2 minutes, hold up to 2, plus 1 for each friend you invite' }
 };
 const MILESTONES = [11000, 51000, 101000, 501000, 1100000, 2617000];
 const S = {
   mode: 'landing', view: 'roof', pts: 0, rank: null, sel: 'rocket', times: [], lit: 0, online: 0, myLights: 0, user: null, anon: '', feed: [], mine: new Set(), joining: false,
-  inv: { rocket: 5, named: 1, skyshot: 1, anar: 3, chakri: 3, phuljhadi: 3, bomb: 3, ladi: 2, diya: 11 },
-  next: {}, skyName: '', tpl: 0, sound: true, drawer: null, tab: 'today', nudged: false, studio: false
+  inv: { rocket: 5, named: 2, skyshot: 1, anar: 3, chakri: 3, phuljhadi: 3, bomb: 3, ladi: 2, diya: 11 },
+  next: {}, bonus: 0, friends: null, skyName: '', tpl: 0, sound: true, drawer: null, tab: 'today', nudged: false, studio: false
 };
 function startRefill(k) {
   const r = KIT[k];
@@ -1245,18 +1245,18 @@ function award(key, send = true) {
 }
 function groundBusy() { return emitters.filter((e) => e instanceof Anar || e instanceof Chakri || e instanceof Bomb || e instanceof Ladi || e instanceof SkyShot).length >= 5; }
 function outOf(k) {
-  const it = ITEM[k], r = KIT[k];
-  if (r.earned) { toast('Invite a friend to earn another named rocket'); return; }
-  toast(`Next ${it.name.toLowerCase()} in ${fmtLeft((S.next[k] || Date.now()) - Date.now())}. It's free, hang on.`);
+  const it = ITEM[k], extra = k === 'named' ? ' Invite a friend to get one right away.' : " It's free, hang on.";
+  toast(`Next ${it.name.toLowerCase()} in ${fmtLeft((S.next[k] || Date.now()) - Date.now())}.${extra}`);
 }
 function useItem(cx, cy) {
   const k = S.sel, it = ITEM[k];
-  if ((S.inv[k] || 0) <= 0) { outOf(k); return; }
+  if ((S.inv[k] || 0) + (k === 'named' ? S.bonus : 0) <= 0) { outOf(k); return; }
   if (it.where === 'ground' && groundBusy()) { toast('Let the others finish first'); return; }
   if (k === 'phuljhadi' && S.view !== 'roof') { toast('Switch to Rooftop view to hold a phuljhadi'); return; }
   if (k === 'phuljhadi' && activeSparkler) { toast('Your phuljhadi is still burning'); return; }
   const fizz = it.where === 'ground' && k !== 'skyshot' && k !== 'ladi' && rand() < 0.07;
-  if (!fizz) { S.inv[k]--; startRefill(k); }
+  // a named rocket uses a refilled one first, then an invite bonus (the server does the same)
+  if (!fizz) { if (k === 'named' && !(S.inv.named > 0)) S.bonus--; else { S.inv[k]--; startRefill(k); } }
   bumpSlot(k);
   let gain = 0;
   switch (k) {
@@ -1268,8 +1268,9 @@ function useItem(cx, cy) {
           // the server already counted this rocket's points, so don't send it again with the lights
           S.mine.add(r.text); award('named', false); myRocket(pt, r.text); S.feed.unshift({ text: r.text, where: S.user.city, ts: Date.now() }); renderFeed(); renderDock();
           if (r.today != null) { S.pts = Math.max(S.pts, r.today); S.rank = r.rank; renderHud(); }
+          applyNamed(r.named);
         })
-        .catch((e) => { S.inv.named = e.status === 403 ? 0 : (S.inv.named || 0) + 1; renderDock(); toast(e.message); });
+        .catch((e) => { toast(e.message); if (e.data && e.data.named) applyNamed(e.data.named); else loadMe(); });
       break;
     }
     case 'anar': { const p = floorPoint(cx, cy); emitters.push(new Anar(p, fizz)); if (!fizz) { gain = award('anar'); floatText({ x: p.x, y: 1.6, z: p.z }, '+' + gain, 'pts'); } break; }
@@ -1367,7 +1368,7 @@ function renderFeed() {
 function renderDock() {
   const d = $('#dock');
   d.innerHTML = ITEMS.map((it, idx) => {
-    const c = S.inv[it.key] || 0;
+    const c = (S.inv[it.key] || 0) + (it.key === 'named' ? S.bonus : 0);
     return `<button type="button" class="slot${c ? '' : ' empty'}" data-k="${it.key}" aria-pressed="${it.key === S.sel}" aria-label="${it.name}, ${c} left">
       <span class="key">${idx + 1}</span><span class="ct">${c}</span>${svg(it.key, 26)}<span class="nm">${it.name}</span><span class="tm"></span></button>`;
   }).join('');
@@ -1482,10 +1483,10 @@ function renderDrawer() {
       <span><b>${i.name}</b><span class="d">+${i.pts} pts · ${r.rule}</span></span>
       <span class="kitstat"><b>${S.inv[i.key] || 0}${r.cap ? ' / ' + r.cap : ''}</b><span data-tm="${i.key}"></span></span></div>`;
     }).join('');
-    const nn = S.inv.named || 0;
+    const nn = (S.inv.named || 0) + S.bonus;
     box.innerHTML = `<div class="dr-body" style="padding-top:8px">
       <p class="sub">Everything here is free. Your kit refills on its own.</p>
-      <h3 class="shop-h">Named rocket · you have ${nn}</h3>
+      <h3 class="shop-h">Named rocket · you have ${nn} · <span data-tm="named"></span></h3>
       <div class="named">
         <div class="preview" aria-hidden="true"><span id="pv">${esc(templ(S.tpl, S.skyName))}</span></div>
         <div class="field"><label for="skyName">Name in the sky</label>
@@ -1493,7 +1494,7 @@ function renderDrawer() {
           <span class="msg" id="nameMsg">Up to 20 letters. Every name is checked before it goes up.</span></div>
         <div class="tpls" role="group" aria-label="Message style">${[0, 1, 2].map((k) => `<button type="button" class="tpl" data-tpl="${k}" aria-pressed="${k === S.tpl}">${['{name} ki Rocket', 'Happy Diwali, {name}', '{name} + family'][k]}</button>`).join('')}</div>
         <button type="button" class="btn btn--primary" id="useNamed" style="height:48px"${nn ? '' : ' disabled'}>${nn ? 'Get it ready to launch' : 'No named rockets left'}</button>
-        <p class="earn">Earn more: +1 for each friend who joins with your link, +1 for each day you come back.</p>
+        <p class="earn">A new one every 2 minutes, hold up to 2. Each friend who joins with your link gives you 1 more, up to 10.${S.friends ? ` Friends who joined with your link: <b>${S.friends}</b>.` : ''}</p>
         <button type="button" class="btn btn--ghost" id="invite" style="height:44px;font-size:15px">Invite a friend</button>
       </div>
       <h3 class="shop-h">Your kit</h3>${list}
@@ -1511,7 +1512,7 @@ function renderDrawer() {
       closeDrawer(); select('named');
       toast('Named rocket ready. Click the sky to send it up.');
     });
-    $('#invite').addEventListener('click', () => toast('Invite links go live at launch. Each friend who joins gives you +1 named rocket.'));
+    $('#invite').addEventListener('click', shareInvite);
     updateTimers();
   } else {
     const inLakh = S.lit % 100000;
@@ -1528,7 +1529,7 @@ function renderDrawer() {
   }
 }
 $('#btnRanks').addEventListener('click', () => openDrawer('ranks'));
-$('#btnKit').addEventListener('click', () => openDrawer('kit'));
+$('#btnKit').addEventListener('click', () => { openDrawer('kit'); loadMe(); });
 document.querySelectorAll('[data-support]').forEach((b) => b.addEventListener('click', () => { $('#nudge').hidden = true; openDrawer('support'); }));
 $('#drClose').addEventListener('click', closeDrawer);
 $('#scrim').addEventListener('click', closeDrawer);
@@ -1910,7 +1911,7 @@ const API = {
   async post(path, body) {
     const r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw Object.assign(new Error(j.error || 'Something went wrong. Try again.'), { status: r.status });
+    if (!r.ok) throw Object.assign(new Error(j.error || 'Something went wrong. Try again.'), { status: r.status, data: j });
     return j;
   },
   async get(path) { const r = await fetch(path); if (!r.ok) throw new Error('offline'); return r.json(); }
@@ -1954,10 +1955,10 @@ $('#joinForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = $('#joinGo'); btn.disabled = true; $('#joinErr').textContent = '';
   try {
-    const r = await API.post('/api/join', { name: $('#jName').value, city: $('#jCity').value, state: $('#jState').value });
-    S.user = { ...r.user, token: r.token }; saveLocal('ek-user', S.user); S.skyName = S.user.name;
+    const r = await API.post('/api/join', { name: $('#jName').value, city: $('#jCity').value, state: $('#jState').value, ref: loadLocal('ek-ref'), anon: S.anon });
+    S.user = { ...r.user, token: r.token }; saveLocal('ek-user', S.user); saveLocal('ek-ref', null); S.skyName = S.user.name;
     $('#btnSignin').textContent = S.user.name;
-    closeJoin(); startPlay();
+    closeJoin(); startPlay(); loadMe();
   } catch (err) { $('#joinErr').textContent = err.message; }
   finally { btn.disabled = false; }
 });
@@ -1966,11 +1967,11 @@ if (S.user && S.user.token) { S.skyName = S.user.name; $('#btnSignin').textConte
 // The kit is kept in the browser so a reload doesn't refill it (the server keeps its own copy too).
 // Today's points ride along so the HUD doesn't show 0 after a reload (the server's number wins on the next send).
 const today = () => new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
-function saveKit() { if (S.user) saveLocal('ek-kit', { uid: S.user.id, inv: S.inv, next: S.next, day: today(), pts: S.pts, rank: S.rank }); }
+function saveKit() { if (S.user) saveLocal('ek-kit', { uid: S.user.id, inv: S.inv, next: S.next, day: today(), pts: S.pts, rank: S.rank, friends: S.friends }); }
 function restoreKit() {
   const k = loadLocal('ek-kit');
   if (!S.user || !k || k.uid !== S.user.id) return;
-  Object.assign(S.inv, k.inv); S.next = k.next || {};
+  Object.assign(S.inv, k.inv); S.next = k.next || {}; S.friends = k.friends ?? null;
   if (k.day === today()) { S.pts = k.pts || 0; S.rank = k.rank || null; }
   // add whatever refilled while the page was closed
   const now = Date.now();
@@ -1989,6 +1990,32 @@ restoreKit();
 if (S.user) { startPlay(); toast(`Welcome back, ${S.user.name}. Your kit is where you left it.`); }
 S.anon = loadLocal('ek-anon') || (crypto.randomUUID ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2)));
 saveLocal('ek-anon', S.anon);
+// Invite links look like /?i=<friend's player id>. Keep it until this visitor joins, and tidy the address bar.
+const inviteRef = new URLSearchParams(location.search).get('i');
+if (inviteRef) {
+  if (!S.user && /^[0-9a-f-]{36}$/i.test(inviteRef)) saveLocal('ek-ref', inviteRef);
+  const u = new URL(location.href); u.searchParams.delete('i'); history.replaceState(null, '', u.pathname + u.search + u.hash);
+}
+// Named rockets and invite friends live on the server; the browser shows the server's numbers.
+function applyNamed(v) {
+  if (!v) return;
+  S.inv.named = v.left; S.next.named = v.left < KIT.named.cap ? Date.now() + v.nextIn : 0;
+  if (S.friends != null && v.friends > S.friends) toast(v.friends - S.friends > 1 ? `${v.friends - S.friends} friends joined with your link. Extra named rockets for you!` : 'A friend joined with your link. You got an extra named rocket!');
+  S.friends = v.friends; S.bonus = v.bonus;
+  renderDock();
+  if (S.drawer === 'kit' && document.activeElement?.id !== 'skyName') renderDrawer();
+}
+function loadMe() { if (S.user) API.post('/api/me', { token: S.user.token }).then((d) => applyNamed(d.named)).catch(() => {}); }
+function shareInvite() {
+  if (!S.user) return;
+  const url = location.origin + '/?i=' + S.user.id, text = 'Light up one Diwali sky with all of India. Join me on Ek Aasmaan:';
+  // phones get the share sheet (WhatsApp is one tap away); computers get the link copied
+  if (navigator.share && matchMedia('(pointer: coarse)').matches) { navigator.share({ title: 'Ek Aasmaan', text, url }).catch(() => {}); return; }
+  const ask = () => window.prompt('Copy your invite link', url);
+  if (navigator.clipboard) navigator.clipboard.writeText(text + ' ' + url).then(() => toast('Invite link copied. Paste it in WhatsApp.'), ask);
+  else ask();
+}
+loadMe();
 setInterval(flush, 15000);
 addEventListener('pagehide', flush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); else { poll(); beat(); } });

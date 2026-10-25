@@ -22,11 +22,16 @@ export interface Store {
   beat(anon: string): Promise<void>;
   sky(): Promise<{ lights: number; online: number; feed: FeedItem[] }>;
   ranks(board: Board, day: string): Promise<Row[]>;
+  userExists(id: string): Promise<boolean>;
+  /** records that browser `who` joined with `ref`'s invite link; returns how many distinct friends `ref` has */
+  addInvite(ref: string, who: string): Promise<number>;
+  invites(id: string): Promise<number>;
 }
 
 const K = {
   lights: 'ek:lights', online: 'ek:online', feed: 'ek:feed', all: 'ek:lb:all', diyas: 'ek:lb:diyas',
-  city: 'ek:lb:city', state: 'ek:lb:state', day: (d: string) => `ek:lb:day:${d}`, user: (id: string) => `ek:u:${id}`
+  city: 'ek:lb:city', state: 'ek:lb:state', day: (d: string) => `ek:lb:day:${d}`, user: (id: string) => `ek:u:${id}`,
+  inv: (id: string) => `ek:inv:${id}`
 };
 const ONLINE_WINDOW = 70_000;
 
@@ -94,6 +99,13 @@ class RedisStore implements Store {
     const users = await p.exec<({ name?: string; city?: string } | null)[]>();
     return pairs.map(([, s], i) => ({ name: users[i]?.name || 'Someone', sub: users[i]?.city || '', score: s }));
   }
+  async userExists(id: string) { return (await this.r.exists(K.user(id))) === 1; }
+  async addInvite(ref: string, who: string) {
+    const p = this.r.pipeline(); p.sadd(K.inv(ref), who); p.expire(K.inv(ref), 30 * 86400); p.scard(K.inv(ref));
+    const res = await p.exec();
+    return Number(res[2] ?? 0);
+  }
+  async invites(id: string) { return Number(await this.r.scard(K.inv(id))); }
 }
 
 type Z = Map<string, number>;
@@ -137,6 +149,13 @@ class MemoryStore implements Store {
     if (board === 'cities' || board === 'states') return top.map(([m, s]) => { const [name, sub] = m.split('|'); return { name, sub: sub || '', score: s }; });
     return top.map(([id, s]) => ({ name: this.users.get(id)?.name || 'Someone', sub: this.users.get(id)?.city || '', score: s }));
   }
+  sets = new Map<string, Set<string>>();
+  async userExists(id: string) { return this.users.has(id); }
+  async addInvite(ref: string, who: string) {
+    let s = this.sets.get(K.inv(ref)); if (!s) { s = new Set(); this.sets.set(K.inv(ref), s); }
+    s.add(who); return s.size;
+  }
+  async invites(id: string) { return this.sets.get(K.inv(id))?.size || 0; }
 }
 
 let store: Store | null = null;
