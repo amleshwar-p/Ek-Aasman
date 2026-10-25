@@ -1,14 +1,23 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+// Link previews (WhatsApp, Instagram) need full URLs. On Vercel this is the production domain, so a custom
+// domain added later is picked up by itself.
+const site = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : 'http://localhost:3000';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(site),
   title: 'Ek Aasmaan',
   description: 'One night sky for all of India. Light diyas, burst crackers, draw your rangoli and send your name up in a rocket this Diwali.',
   openGraph: {
     title: 'Ek Aasmaan · एक आसमान',
     description: 'Ek Bharat. Ek Aasmaan. Light up one shared Diwali sky with all of India.',
-    type: 'website'
-  }
+    type: 'website',
+    url: '/',
+    siteName: 'Ek Aasmaan',
+    locale: 'en_IN'
+  },
+  twitter: { card: 'summary_large_image' }
 };
 
 export const viewport: Viewport = {

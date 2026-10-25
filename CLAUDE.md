@@ -33,7 +33,7 @@ A free, desktop-first (also works on phones) 3D web app for Diwali 2026. Everyon
 1. Moderation: an admin view (protected by a secret) to hide a feed item or ban a name; a bigger Hindi/Hinglish blocklist.
 2. Rangoli sharing: save the rangoli image (Vercel Blob) and show other players' rangolis on their terraces in Sky view; likes for a "Rangoli" leaderboard.
 3. Family Sky links (`/s/<code>`): a private group with its own leaderboard, for WhatsApp groups.
-4. Share card image (`/api/og`) with name, points, rank, city. Also an Open Graph image for link previews.
+4. Share card image (`/api/og`) with name, points, rank, city. (The link-preview image is done: `src/app/opengraph-image.tsx`, drawn at build time, no counts on it.)
 5. Daily streak and invite rewards (named rockets), server-tracked.
 6. Bot protection on join (Cloudflare Turnstile) if spam appears.
 7. Phone performance: a low-power mode (fewer buildings, no shadows, lower particle counts) chosen automatically.
