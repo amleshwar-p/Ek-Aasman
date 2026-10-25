@@ -8,11 +8,12 @@ export const dynamic = 'force-dynamic';
 // Join with a name, city and state. No email, no password.
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
-  const name = cleanName(body.name), city = cleanCity(body.city), state = cleanState(body.state);
+  const store = getStore();
+  const words = await store.words(); // extra blocked words added from the admin page
+  const name = cleanName(body.name, words), city = cleanCity(body.city, words), state = cleanState(body.state);
   if (!name) return Response.json({ error: 'Use 2 to 20 letters for your name, with no numbers, links or rude words.' }, { status: 400 });
   if (!city) return Response.json({ error: 'Type the city you are celebrating from, using letters only.' }, { status: 400 });
   if (!state) return Response.json({ error: 'Pick your state from the list.' }, { status: 400 });
-  const store = getStore();
   // Generous on purpose: Jio and Airtel put many phones behind one shared IP, and a family on one
   // WiFi shares one too. This only stops a script joining hundreds of times.
   const n = await store.hit(`ek:rl:join:${clientIp(req)}`, 600);

@@ -16,7 +16,10 @@ export async function POST(req: Request) {
   const store = getStore();
   const now = Date.now();
   const key = `ek:kit:${who.i}`;
-  const kit = (await store.getJSON<Kit>(key)) || { t: now, a: Object.fromEntries(Object.entries(KIT_RULES).map(([k, r]) => [k, r.start])) };
+  const [saved, banned] = await Promise.all([store.getJSON<Kit>(key), store.isBanned(who.i)]);
+  // a banned player can keep clicking, but nothing reaches the counter or the boards
+  if (banned) return Response.json({ error: 'This player has been removed by the moderators.' }, { status: 403 });
+  const kit = saved || { t: now, a: Object.fromEntries(Object.entries(KIT_RULES).map(([k, r]) => [k, r.start])) };
   const elapsed = Math.max(0, (now - kit.t) / 1000);
 
   let lights = 0, pts = 0, diyas = 0;

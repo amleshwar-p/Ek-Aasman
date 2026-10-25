@@ -66,6 +66,10 @@ That adds the connection keys (`KV_REST_API_URL` / `KV_REST_API_TOKEN` or `UPSTA
    ```
 2. Vercel project → **Settings → Environment Variables** → add `SESSION_SECRET` = that string (all environments) → **Save**.
 
+### 3b-2. Add the admin secret
+
+Same as above, but name it `ADMIN_SECRET` (use a different random string). Then open `/admin` on your site and type it to moderate: hide named rockets, ban players, block words, remove bad city names.
+
 ### 3c. Redeploy
 
 **Deployments** tab → the three dots on the latest one → **Redeploy**. Done: the site now shares one sky across everyone.

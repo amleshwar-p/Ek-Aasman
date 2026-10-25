@@ -24,13 +24,13 @@ A free, desktop-first (also works on phones) 3D web app for Diwali 2026. Everyon
 - API routes in `src/app/api/*`: `join`, `lights` (batched counts → server-computed points, per-item kit caps), `named` (template-only text, 1 per 20 s), `beat` (online presence while idle; `lights` also marks you online), `sky` (edge-cached 10 s, polled every 10 s), `ranks` (edge-cached 10 s).
 - `src/lib/store.ts`: `RedisStore` (Upstash) or `MemoryStore` fallback when keys are missing (local dev). Redis keys are prefixed `ek:`.
 - Functions run in Mumbai (`vercel.json` regions `bom1`), next to the Upstash database. Returning players (token in localStorage) skip the welcome screen.
-- Env: `SESSION_SECRET` (required in production), Upstash keys `UPSTASH_REDIS_REST_URL/TOKEN` or `KV_REST_API_URL/TOKEN`.
+- Env: `SESSION_SECRET` (required in production), `ADMIN_SECRET` (16+ chars, opens `/admin`), Upstash keys `UPSTASH_REDIS_REST_URL/TOKEN` or `KV_REST_API_URL/TOKEN`.
 
 ## Commands
 - `npm install`, `npm run dev` (http://localhost:3000, add `?test` for the time control), `npm run build`.
 
 ## Next steps (Stage B, before 4 Nov)
-1. Moderation: an admin view (protected by a secret) to hide a feed item or ban a name; a bigger Hindi/Hinglish blocklist.
+1. Moderation is done: `/admin` (needs `ADMIN_SECRET`) hides feed items, bans players, blocks extra words and removes bad city names; `src/lib/filter.ts` checks Roman and Devanagari abuse.
 2. Rangoli sharing: save the rangoli image (Vercel Blob) and show other players' rangolis on their terraces in Sky view; likes for a "Rangoli" leaderboard.
 3. Family Sky links (`/s/<code>`): a private group with its own leaderboard, for WhatsApp groups.
 4. Share card image (`/api/og`) with name, points, rank, city. (The link-preview image is done: `src/app/opengraph-image.tsx`, drawn at build time, no counts on it.)

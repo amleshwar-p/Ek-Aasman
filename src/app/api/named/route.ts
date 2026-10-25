@@ -13,10 +13,12 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const who = readToken(body.token);
   if (!who) return Response.json({ error: 'Join first' }, { status: 401 });
-  const name = cleanName(body.name);
+  const store = getStore();
+  const [words, banned] = await Promise.all([store.words(), store.isBanned(who.i)]);
+  if (banned) return Response.json({ error: 'This player has been removed by the moderators.' }, { status: 403 });
+  const name = cleanName(body.name, words);
   if (!name) return Response.json({ error: 'That name can\'t go in the sky. Use letters only, and keep it friendly.' }, { status: 400 });
   const tpl = TEMPLATES[Math.max(0, Math.min(2, Number(body.tpl) || 0))];
-  const store = getStore();
   const now = Date.now();
   // every reply carries the player's named rockets, so the browser always shows the server's count
   const state = await loadNamed(store, who.i, now);
